@@ -168,8 +168,8 @@ void CsmaCaMac::handleUpperPacket(Packet *packet)
     transmissionQueue->pushPacket(frame);
     if (fsm.getState() != IDLE)
         EV << "deferring upper message transmission in " << fsm.getStateName() << " state\n";
-    else
-        handleWithFsm(transmissionQueue->getPacket(0));
+    else if (!transmissionQueue->isEmpty())
+        handleWithFsm(popTransmissionQueue());
 }
 
 void CsmaCaMac::handleLowerPacket(Packet *packet)
@@ -258,27 +258,27 @@ void CsmaCaMac::handleWithFsm(cMessage *msg)
         }
         FSMA_State(TRANSMIT)
         {
-            FSMA_Enter(sendDataFrame(getCurrentTransmission()));
+            FSMA_Enter(sendDataFrame(currentTransmission));
             FSMA_Event_Transition(Transmit-Broadcast,
-                                  msg == endData && isBroadcast(getCurrentTransmission()),
+                                  msg == endData && isBroadcast(currentTransmission),
                                   IDLE,
                 finishCurrentTransmission();
                 numSentBroadcast++;
             );
             FSMA_Event_Transition(Transmit-Unicast-No-Ack,
-                                  msg == endData && !useAck && !isBroadcast(getCurrentTransmission()),
+                                  msg == endData && !useAck && !isBroadcast(currentTransmission),
                                   IDLE,
                 finishCurrentTransmission();
                 numSent++;
             );
             FSMA_Event_Transition(Transmit-Unicast-Use-Ack,
-                                  msg == endData && useAck && !isBroadcast(getCurrentTransmission()),
+                                  msg == endData && useAck && !isBroadcast(currentTransmission),
                                   WAITACK,
             );
         }
         FSMA_State(WAITACK)
         {
-            FSMA_Enter(scheduleAckTimeout(getCurrentTransmission()));
+            FSMA_Enter(scheduleAckTimeout(currentTransmission));
             FSMA_Event_Transition(Receive-Ack,
                                   isLowerMessage(msg) && isFcsOk(frame) && isForUs(frame) && isAck(frame),
                                   IDLE,
@@ -351,8 +351,10 @@ void CsmaCaMac::handleWithFsm(cMessage *msg)
     if (fsm.getState() == IDLE) {
         if (isReceiving())
             handleWithFsm(mediumStateChange);
+        else if (currentTransmission != nullptr)
+            handleWithFsm(currentTransmission);
         else if (!transmissionQueue->isEmpty())
-            handleWithFsm(transmissionQueue->getPacket(0));
+            handleWithFsm(popTransmissionQueue());
     }
     if (isLowerMessage(msg) && frame->getOwner() == this && endSifs->getContextPointer() != frame)
         delete frame;
@@ -463,7 +465,7 @@ void CsmaCaMac::generateBackoffPeriod()
     ASSERT(0 <= retryCounter && retryCounter <= retryLimit);
     EV << "generating backoff slot number for retry: " << retryCounter << endl;
     int cw;
-    if (getCurrentTransmission()->peekAtFront<CsmaCaMacHeader>()->getReceiverAddress().isMulticast())
+    if (currentTransmission->peekAtFront<CsmaCaMacHeader>()->getReceiverAddress().isMulticast())
         cw = cwMulticast;
     else
         cw = std::min(cwMax, (cwMin + 1) * (1 << retryCounter) - 1);
@@ -536,16 +538,16 @@ void CsmaCaMac::sendAckFrame()
  */
 void CsmaCaMac::finishCurrentTransmission()
 {
-    popTransmissionQueue();
+    deleteCurrentTransmission();
     resetTransmissionVariables();
 }
 
 void CsmaCaMac::giveUpCurrentTransmission()
 {
-    auto packet = getCurrentTransmission();
+    auto packet = currentTransmission;
     emitPacketDropSignal(packet, RETRY_LIMIT_REACHED, retryLimit);
     emit(linkBrokenSignal, packet);
-    popTransmissionQueue();
+    deleteCurrentTransmission();
     resetTransmissionVariables();
     numGivenUp++;
 }
@@ -558,15 +560,19 @@ void CsmaCaMac::retryCurrentTransmission()
     generateBackoffPeriod();
 }
 
-Packet *CsmaCaMac::getCurrentTransmission()
+void CsmaCaMac::deleteCurrentTransmission()
 {
-    return static_cast<Packet *>(transmissionQueue->getPacket(0));
+    ASSERT(currentTransmission != nullptr);
+    EV << "dropping current transmission\n";
+    delete currentTransmission;
+    currentTransmission = nullptr;
 }
 
-void CsmaCaMac::popTransmissionQueue()
+Packet *CsmaCaMac::popTransmissionQueue()
 {
-    EV << "dropping frame from transmission queue\n";
-    delete transmissionQueue->popPacket();
+    ASSERT(currentTransmission == nullptr);
+    currentTransmission = transmissionQueue->popPacket();
+    return currentTransmission;
 }
 
 void CsmaCaMac::resetTransmissionVariables()
