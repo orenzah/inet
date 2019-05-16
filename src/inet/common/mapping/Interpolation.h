@@ -25,8 +25,6 @@
 
 namespace inet {
 
-namespace physicallayer {
-
 /**
  * @brief Represents an interpolated value of any type.
  *
@@ -921,8 +919,6 @@ class InterpolateableMap : public TContainer
         return it;
     }
 };
-
-} // namespace physicallayer
 
 } // namespace inet
 

@@ -20,7 +20,6 @@
 #include "inet/common/mapping/MappingBase.h"
 
 namespace inet {
-namespace physicallayer {
 //---Dimension implementation-----------------------------
 
 const Dimension Dimension::time("time", 0);
@@ -398,6 +397,5 @@ void SimpleConstMapping::initializeArguments(const Argument& min,
     else
         createKeyEntries(min, max, interval, dimIt, pos);
 }
-} // namespace physicallayer
 } // namespace inet
 

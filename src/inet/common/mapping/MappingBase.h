@@ -31,8 +31,6 @@
 
 namespace inet {
 
-namespace physicallayer {
-
 /**
  * @brief Specifies a dimension for mappings (like time, frequency, etc.)
  *
@@ -1745,8 +1743,6 @@ class INET_API SimpleConstMapping : public ConstMapping
             const Argument& max,
             const Argument& interval);
 };
-
-} // namespace physicallayer
 
 } // namespace inet
 

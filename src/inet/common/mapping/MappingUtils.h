@@ -23,8 +23,6 @@
 
 namespace inet {
 
-namespace physicallayer {
-
 class FilledUpMapping;
 
 /**
@@ -2935,8 +2933,6 @@ INET_API Mapping *operator*(const ConstMapping& f1, const ConstMapping& f2);
 INET_API Mapping *operator/(const ConstMapping& f1, const ConstMapping& f2);
 INET_API Mapping *operator+(const ConstMapping& f1, const ConstMapping& f2);
 INET_API Mapping *operator-(const ConstMapping& f1, const ConstMapping& f2);
-
-} // namespace physicallayer
 
 } // namespace inet
 
