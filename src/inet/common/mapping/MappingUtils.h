@@ -2282,55 +2282,81 @@ class INET_API MappingUtils
     {
         using std::operator<<;
 
-        const ConstMapping *const f2Comp = createCompatibleMapping(f2, f1);
-        const ConstMapping *const f1Comp = createCompatibleMapping(f1, f2);
+        DimensionSet domain;
+        std::set<Dimension> dimsSet;
+        const DimensionSet& dims1 = f1.getDimensionSet();
+        for (auto it = dims1.begin(); it != dims1.end(); it++) {
+            domain.addDimension(*it);
+            dimsSet.insert(*it);
+        }
+        const DimensionSet& dims2 = f2.getDimensionSet();
+        for (auto it = dims2.begin(); it != dims2.end(); it++) {
+            domain.addDimension(*it);
+            dimsSet.insert(*it);
+        }
+        std::vector<Dimension> dims(dimsSet.begin(), dimsSet.end());
 
-        const DimensionSet& domain = f1Comp->getDimensionSet();
+        std::vector<simtime_t> timeArgs;
+        std::vector<std::vector<double>> dimArgs;
+        for (auto dim : dims) {
+            std::set<simtime_t> times;
+            std::set<double> args;
+
+            ConstMappingIterator *it1 = f1.createConstIterator();
+            while (it1->inRange()) {
+                const Argument& a = it1->getPosition();
+                if (dim == Dimension::time)
+                    times.insert(a.getTime());
+                else
+                    args.insert(a.getArgValue(dim));
+                if (!it1->hasNext())
+                    break;
+                else
+                    it1->next();
+            }
+            delete it1;
+
+            ConstMappingIterator *it2 = f2.createConstIterator();
+            while (it2->inRange()) {
+                const Argument& a = it2->getPosition();
+                if (dim == Dimension::time)
+                    times.insert(a.getTime());
+                else
+                    args.insert(a.getArgValue(dim));
+                if (!it2->hasNext())
+                    break;
+                else
+                    it2->next();
+            }
+            delete it2;
+
+            if (dim == Dimension::time) {
+                timeArgs = std::vector<simtime_t>(times.begin(), times.end());
+                dimArgs.push_back(std::vector<double>(times.size()));
+            }
+            else
+                dimArgs.push_back(std::vector<double>(args.begin(), args.end()));
+        }
+
+        int total = 1;
+        for (int i = 0; i < (int)dimArgs.size(); i++)
+            total *= dimArgs[i].size();
         Mapping *const result = (contOutOfRange) ? MappingUtils::createMapping(domain) : MappingUtils::createMapping(outOfRangeVal, domain);
 
-        ConstMappingIterator *const itF1 = f1Comp->createConstIterator();
-        ConstMappingIterator *const itF2 = f2Comp->createConstIterator();
-        const bool bF1InRange = itF1->inRange();
-        const bool bF2InRange = itF2->inRange();
-
-        if (!bF1InRange && !bF2InRange) {
-            delete itF1;
-            delete itF2;
-            return result;
+        for (int i = 0; i < total; i++) {
+            Argument a;
+            int index = i;
+            for (int d = 0; d < (int)dims.size(); d++) {
+                const Dimension& dim = dims[d];
+                std::vector<double>& args = dimArgs[d];
+                if (dim == Dimension::time)
+                    a.setTime(timeArgs[index % timeArgs.size()]);
+                else
+                    a.setArgValue(dim, args[index % args.size()]);
+                index /= args.size();
+            }
+            result->setValue(a, op(f1.getValue(a), f2.getValue(a)));
         }
-
-        MappingIterator *itRes = 0;
-
-        if (bF1InRange && (!bF2InRange || itF1->getPosition() < itF2->getPosition())) {
-            itF2->jumpTo(itF1->getPosition());
-        }
-        else {
-            itF1->jumpTo(itF2->getPosition());
-        }
-
-        itRes = result->createIterator(itF1->getPosition());
-
-        while (itF1->inRange() || itF2->inRange()) {
-//            assert(itF1->getPosition().isSamePosition(itF2->getPosition()));
-
-            Mapping::argument_value_cref_t prod = op(itF1->getValue(), itF2->getValue());
-            //result->setValue(itF1->getPosition(), prod);
-            itRes->setValue(prod);
-
-            if (!iterateToNext(itF1, itF2))
-                break;
-
-            itRes->iterateTo(itF1->getPosition());
-        }
-
-        delete itF1;
-        delete itF2;
-        delete itRes;
-
-        if (&f2 != f2Comp)
-            delete (f2Comp);
-        if (&f1 != f1Comp)
-            delete (f1Comp);
 
         return result;
     }
