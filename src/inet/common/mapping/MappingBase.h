@@ -817,10 +817,6 @@ class INET_API ConstMappingIterator
 
 class Mapping;
 
-namespace mixim {
-
-namespace math {
-
 template<typename T, bool B = std::numeric_limits<T>::has_infinity>
 struct mW2dBm
 {
@@ -850,8 +846,6 @@ struct mW2dBm<T, true>
         }
         return 10 * log10(mW);
     }
-};
-};
 };
 
 /**
@@ -1131,7 +1125,7 @@ class INET_API ConstMapping
         const t_time_container_type::const_iterator tItEnd = timePositions.end();
         std::stringstream osBorder(std::stringstream::out);
         std::stringstream osHeader(std::stringstream::out);
-        mixim::math::mW2dBm<argument_value_t> fctor2dBm;
+        mW2dBm<argument_value_t> fctor2dBm;
 
         for (tIt = timePositions.begin(); tIt != tItEnd; ++tIt) {
             osHeader << m.toString(*tIt * lTimeScale, iMaxHeaderItemLen) << osHeader.fill();
