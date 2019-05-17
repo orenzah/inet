@@ -18,6 +18,10 @@ class DimensionalTransmitterTest : public DimensionalTransmitterBase
         return new ConcatConstMapping<std::plus<double> >(p1, p2, false, Argument::MappedZero);
     }
 
+    ConstMapping *divide(ConstMapping *p1, ConstMapping *p2) {
+        return new ConcatConstMapping<std::divides<double> >(p1, p2, false, Argument::MappedZero);
+    }
+
     void printValue(ConstMapping *mapping, simtime_t time) {
         Argument position(dimensions);
         position.setTime(time);
@@ -44,6 +48,7 @@ class DimensionalTransmitterTest : public DimensionalTransmitterBase
     void testDual1();
     void testDual2();
     void testDual3();
+    void testDivide();
 };
 
 void DimensionalTransmitterTest::testTime1()
@@ -179,6 +184,25 @@ void DimensionalTransmitterTest::testDual3()
     std::cout << "Max value: " << MappingUtils::findMax(*total) << std::endl;
 }
 
+void DimensionalTransmitterTest::testDivide()
+{
+    interpolationMode = Mapping::LINEAR;
+    dimensions = DimensionSet();
+    dimensions.addDimension(Dimension::time);
+    timeGains.clear();
+    timeGains.push_back(TimeGainEntry('%', 0, 1));
+    timeGains.push_back(TimeGainEntry('%', 0.5, 0.5));
+    timeGains.push_back(TimeGainEntry('%', 1, 1));
+    auto p1 = createPowerMapping(10, 30, GHz(1), MHz(200), W(1));
+    auto p2 = createPowerMapping(20, 40, GHz(1), MHz(200), W(10));
+    std::cout << *p1 << std::endl;
+    std::cout << *p2 << std::endl;
+    auto result = divide(p1, p2);
+    std::cout << *result << std::endl;
+    for (int i = 0; i <= 50; i += 1)
+        printValue(result, i);
+}
+
 %activity:
 DimensionalTransmitterTest tester;
 tester.testTime1();
@@ -188,6 +212,7 @@ tester.testFrequency2();
 tester.testDual1();
 tester.testDual2();
 tester.testDual3();
+tester.testDivide();
 
 %contains-regex: stdout
 Value at 0: 0
@@ -560,3 +585,55 @@ Value at 45 1.25 GHz: 0
 Value at 45 1.3 GHz: 0
 Value at 45 1.35 GHz: 0
 Max value: 11
+.*
+Value at 0: -nan
+Value at 1: -nan
+Value at 2: -nan
+Value at 3: -nan
+Value at 4: -nan
+Value at 5: -nan
+Value at 6: -nan
+Value at 7: -nan
+Value at 8: -nan
+Value at 9: -nan
+Value at 10: inf
+Value at 11: inf
+Value at 12: inf
+Value at 13: inf
+Value at 14: inf
+Value at 15: inf
+Value at 16: inf
+Value at 17: inf
+Value at 18: inf
+Value at 19: inf
+Value at 20: 0.05
+Value at 21: 0.0578947
+Value at 22: 0.0666667
+Value at 23: 0.0764706
+Value at 24: 0.0875
+Value at 25: 0.1
+Value at 26: 0.114286
+Value at 27: 0.130769
+Value at 28: 0.15
+Value at 29: 0.172727
+Value at 30: 0.2
+Value at 31: 0
+Value at 32: 0
+Value at 33: 0
+Value at 34: 0
+Value at 35: 0
+Value at 36: 0
+Value at 37: 0
+Value at 38: 0
+Value at 39: 0
+Value at 40: 0
+Value at 41: -nan
+Value at 42: -nan
+Value at 43: -nan
+Value at 44: -nan
+Value at 45: -nan
+Value at 46: -nan
+Value at 47: -nan
+Value at 48: -nan
+Value at 49: -nan
+Value at 50: -nan
