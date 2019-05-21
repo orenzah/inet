@@ -65,7 +65,7 @@ class INET_API DimensionalTransmitterBase : public virtual IPrintableObject
   protected:
     virtual void initialize(int stage);
 
-    virtual ConstMapping *createPowerMapping(const simtime_t startTime, const simtime_t endTime, Hz carrierFrequency, Hz bandwidth, W power) const;
+    virtual math::Function<W, simtime_t, Hz> *createPowerMapping(const simtime_t startTime, const simtime_t endTime, Hz carrierFrequency, Hz bandwidth, W power) const;
 
   public:
     DimensionalTransmitterBase();

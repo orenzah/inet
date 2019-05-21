@@ -2,7 +2,7 @@
 This test checks the correctness of dimensional signal power representation with linear interpolation.
 
 %includes:
-#include "inet/common/mapping/MappingUtils.h"
+#include "inet/common/math/Function.h"
 #include "inet/physicallayer/base/packetlevel/DimensionalTransmitterBase.h"
 
 %global:
@@ -14,31 +14,16 @@ using namespace inet::units::values;
 class DimensionalTransmitterTest : public DimensionalTransmitterBase
 {
   public:
-    ConstMapping *add(ConstMapping *p1, ConstMapping *p2) {
-        return new ConcatConstMapping<std::plus<double> >(p1, p2, false, Argument::MappedZero);
+    void printValue(Function<W, s> *mapping, simtime_t time) {
+        std::cout << "Value at " << time << ": " << mapping->at(Point<s>(s(time.dbl()))) << std::endl;
     }
 
-    ConstMapping *divide(ConstMapping *p1, ConstMapping *p2) {
-        return new ConcatConstMapping<std::divides<double> >(p1, p2, false, Argument::MappedZero);
+    void printValue(Function<W, Hz> *mapping, Hz frequency) {
+        std::cout << "Value at " << frequency << ": " << mapping->at(Point<simtime_t, Hz>(frequency)) << std::endl;
     }
 
-    void printValue(ConstMapping *mapping, simtime_t time) {
-        Argument position(dimensions);
-        position.setTime(time);
-        std::cout << "Value at " << time << ": " << mapping->getValue(position) << std::endl;
-    }
-
-    void printValue(ConstMapping *mapping, Hz frequency) {
-        Argument position(dimensions);
-        position.setArgValue(Dimension::frequency, frequency.get());
-        std::cout << "Value at " << frequency << ": " << mapping->getValue(position) << std::endl;
-    }
-
-    void printValue(ConstMapping *mapping, simtime_t time, Hz frequency) {
-        Argument position(dimensions);
-        position.setTime(time);
-        position.setArgValue(Dimension::frequency, frequency.get());
-        std::cout << "Value at " << time << " " << frequency << ": " << mapping->getValue(position) << std::endl;
+    void printValue(Function<W, simtime_t, Hz> *mapping, simtime_t time, Hz frequency) {
+        std::cout << "Value at " << time << " " << frequency << ": " << mapping->at(Point<simtime_t, Hz>(s(time.dbl()), frequency)) << std::endl;
     }
 
     void testTime1();
@@ -53,9 +38,6 @@ class DimensionalTransmitterTest : public DimensionalTransmitterBase
 
 void DimensionalTransmitterTest::testTime1()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::time);
     timeGains.clear();
     timeGains.push_back(TimeGainEntry('%', 0, 1));
     timeGains.push_back(TimeGainEntry('%', 1, 1));
@@ -67,9 +49,6 @@ void DimensionalTransmitterTest::testTime1()
 
 void DimensionalTransmitterTest::testTime2()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::time);
     timeGains.clear();
     timeGains.push_back(TimeGainEntry('%', 0, 1));
     timeGains.push_back(TimeGainEntry('%', 1, 1));
@@ -81,14 +60,11 @@ void DimensionalTransmitterTest::testTime2()
     std::cout << *total << std::endl;
     for (int i = 0; i <= 45; i += 5)
         printValue(total, i);
-    std::cout << "Max value: " << MappingUtils::findMax(*total) << std::endl;
+    std::cout << "Max value: " << total->max() << std::endl;
 }
 
 void DimensionalTransmitterTest::testFrequency1()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::frequency);
     frequencyGains.clear();
     frequencyGains.push_back(FrequencyGainEntry('%', 0, 1));
     frequencyGains.push_back(FrequencyGainEntry('%', 1, 1));
@@ -100,9 +76,6 @@ void DimensionalTransmitterTest::testFrequency1()
 
 void DimensionalTransmitterTest::testFrequency2()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::frequency);
     frequencyGains.clear();
     frequencyGains.push_back(FrequencyGainEntry('%', 0, 1));
     frequencyGains.push_back(FrequencyGainEntry('%', 1, 1));
@@ -114,15 +87,11 @@ void DimensionalTransmitterTest::testFrequency2()
     std::cout << *total << std::endl;
     for (int i = 800; i <= 1250; i += 50)
         printValue(total, MHz(i));
-    std::cout << "Max value: " << MappingUtils::findMax(*total) << std::endl;
+    std::cout << "Max value: " << total->max() << std::endl;
 }
 
 void DimensionalTransmitterTest::testDual1()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::time);
-    dimensions.addDimension(Dimension::frequency);
     timeGains.clear();
     timeGains.push_back(TimeGainEntry('%', 0, 1));
     timeGains.push_back(TimeGainEntry('%', 1, 1));
@@ -138,10 +107,6 @@ void DimensionalTransmitterTest::testDual1()
 
 void DimensionalTransmitterTest::testDual2()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::time);
-    dimensions.addDimension(Dimension::frequency);
     timeGains.clear();
     timeGains.push_back(TimeGainEntry('%', 0, 1));
     timeGains.push_back(TimeGainEntry('%', 1, 1));
@@ -157,15 +122,11 @@ void DimensionalTransmitterTest::testDual2()
     for (int i = 0; i <= 45; i += 5)
         for (int j = 800; j <= 1250; j += 50)
             printValue(total, i, MHz(j));
-    std::cout << "Max value: " << MappingUtils::findMax(*total) << std::endl;
+    std::cout << "Max value: " << total->max() << std::endl;
 }
 
 void DimensionalTransmitterTest::testDual3()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::time);
-    dimensions.addDimension(Dimension::frequency);
     timeGains.clear();
     timeGains.push_back(TimeGainEntry('%', 0, 1));
     timeGains.push_back(TimeGainEntry('%', 1, 1));
@@ -181,14 +142,11 @@ void DimensionalTransmitterTest::testDual3()
     for (int i = 0; i <= 45; i += 5)
         for (int j = 800; j <= 1350; j += 50)
             printValue(total, i, MHz(j));
-    std::cout << "Max value: " << MappingUtils::findMax(*total) << std::endl;
+    std::cout << "Max value: " << total->max() << std::endl;
 }
 
 void DimensionalTransmitterTest::testDivide()
 {
-    interpolationMode = Mapping::LINEAR;
-    dimensions = DimensionSet();
-    dimensions.addDimension(Dimension::time);
     timeGains.clear();
     timeGains.push_back(TimeGainEntry('%', 0, 1));
     timeGains.push_back(TimeGainEntry('%', 0.5, 0.5));

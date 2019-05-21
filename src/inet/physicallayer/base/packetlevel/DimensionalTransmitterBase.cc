@@ -122,165 +122,166 @@ std::ostream& DimensionalTransmitterBase::printToStream(std::ostream& stream, in
     return stream;
 }
 
-ConstMapping *DimensionalTransmitterBase::createPowerMapping(const simtime_t startTime, const simtime_t endTime, Hz carrierFrequency, Hz bandwidth, W power) const
+math::Function<W, simtime_t, Hz> *DimensionalTransmitterBase::createPowerMapping(const simtime_t startTime, const simtime_t endTime, Hz carrierFrequency, Hz bandwidth, W power) const
 {
-    Mapping *powerMapping = MappingUtils::createMapping(Argument::MappedZero, dimensions, interpolationMode);
-    Argument position(dimensions);
-    bool hasTimeDimension = dimensions.hasDimension(Dimension::time);
-    bool hasFrequencyDimension = dimensions.hasDimension(Dimension::frequency);
-    if (hasTimeDimension && hasFrequencyDimension) {
-        double startFrequency = (carrierFrequency - bandwidth / 2).get();
-        double endFrequency = (carrierFrequency + bandwidth / 2).get();
-        // must be 0 before the start
-        if (interpolationMode == Mapping::STEPS)
-            ; // already 0 where unspecified
-        else if (interpolationMode == Mapping::LINEAR) {
-            auto previousTime = startTime;
-            previousTime.setRaw(previousTime.raw() - 1);
-            position.setTime(previousTime);
-            position.setArgValue(Dimension::frequency, startFrequency);
-            powerMapping->setValue(position, 0);
-            position.setArgValue(Dimension::frequency, endFrequency);
-            powerMapping->setValue(position, 0);
-            position.setTime(startTime);
-            position.setArgValue(Dimension::frequency, nexttoward(startFrequency, DBL_MIN));
-            powerMapping->setValue(position, 0);
-            position.setArgValue(Dimension::frequency, nexttoward(endFrequency, DBL_MAX));
-            powerMapping->setValue(position, 0);
-        }
-        else
-            throw cRuntimeError("Unknown interpolation mode");
-        // iterate over timeGains and frequencyGains
-        for (const auto & timeGainEntry : timeGains) {
-            switch (timeGainEntry.timeUnit) {
-                case 's':
-                    position.setTime(timeGainEntry.time >= 0 ? startTime + timeGainEntry.time : endTime - timeGainEntry.time);
-                    break;
-                case '%':
-                    position.setTime((1 - timeGainEntry.time) * startTime + timeGainEntry.time * endTime);
-                    break;
-                default:
-                    throw cRuntimeError("Unknown time unit");
-            }
-            for (const auto & frequencyGainEntry : frequencyGains) {
-                switch (frequencyGainEntry.frequencyUnit) {
-                    case 's':
-                        position.setArgValue(Dimension::frequency, frequencyGainEntry.frequency >= 0 ? startFrequency + frequencyGainEntry.frequency : endFrequency - frequencyGainEntry.frequency);
-                        break;
-                    case '%':
-                        position.setArgValue(Dimension::frequency, (1 - frequencyGainEntry.frequency) * startFrequency + frequencyGainEntry.frequency * endFrequency);
-                        break;
-                    default:
-                        throw cRuntimeError("Unknown frequency unit");
-                }
-                powerMapping->setValue(position, timeGainEntry.gain * frequencyGainEntry.gain * power.get());
-            }
-        }
-        // must be 0 after the end
-        if (interpolationMode == Mapping::STEPS) {
-            position.setTime(startTime);
-            position.setArgValue(Dimension::frequency, endFrequency);
-            powerMapping->setValue(position, 0);
-            position.setTime(endTime);
-            position.setArgValue(Dimension::frequency, startFrequency);
-            powerMapping->setValue(position, 0);
-            position.setTime(endTime);
-            position.setArgValue(Dimension::frequency, endFrequency);
-            powerMapping->setValue(position, 0);
-        }
-        else if (interpolationMode == Mapping::LINEAR) {
-            auto nextTime = endTime;
-            nextTime.setRaw(nextTime.raw() + 1);
-            position.setTime(nextTime);
-            position.setArgValue(Dimension::frequency, startFrequency);
-            powerMapping->setValue(position, 0);
-            position.setArgValue(Dimension::frequency, endFrequency);
-            powerMapping->setValue(position, 0);
-            position.setTime(endTime);
-            position.setArgValue(Dimension::frequency, nexttoward(startFrequency, DBL_MIN));
-            powerMapping->setValue(position, 0);
-            position.setArgValue(Dimension::frequency, nexttoward(endFrequency, DBL_MAX));
-            powerMapping->setValue(position, 0);
-        }
-        else
-            throw cRuntimeError("Unknown interpolation mode");
-    }
-    else if (hasTimeDimension) {
-        // must be 0 before the start
-        if (interpolationMode == Mapping::STEPS)
-            ; // already 0 where unspecified
-        else if (interpolationMode == Mapping::LINEAR) {
-            auto previousTime = startTime;
-            previousTime.setRaw(previousTime.raw() - 1);
-            position.setTime(previousTime);
-            powerMapping->setValue(position, 0);
-        }
-        else
-            throw cRuntimeError("Unknown interpolation mode");
-        // iterate over timeGains
-        for (const auto & timeGainEntry : timeGains) {
-            switch (timeGainEntry.timeUnit) {
-                case 's':
-                    position.setTime(timeGainEntry.time >= 0 ? startTime + timeGainEntry.time : endTime - timeGainEntry.time);
-                    break;
-                case '%':
-                    position.setTime((1 - timeGainEntry.time) * startTime + timeGainEntry.time * endTime);
-                    break;
-                default:
-                    throw cRuntimeError("Unknown time unit");
-            }
-            powerMapping->setValue(position, timeGainEntry.gain * power.get());
-        }
-        // must be 0 after the end
-        if (interpolationMode == Mapping::STEPS)
-            position.setTime(endTime);
-        else if (interpolationMode == Mapping::LINEAR) {
-            auto nextTime = endTime;
-            nextTime.setRaw(nextTime.raw() + 1);
-            position.setTime(nextTime);
-        }
-        else
-            throw cRuntimeError("Unknown interpolation mode");
-        powerMapping->setValue(position, 0);
-    }
-    else if (hasFrequencyDimension) {
-        double startFrequency = (carrierFrequency - bandwidth / 2).get();
-        double endFrequency = (carrierFrequency + bandwidth / 2).get();
-        // must be 0 before the start
-        if (interpolationMode == Mapping::STEPS)
-            ; // already 0 where unspecified
-        else if (interpolationMode == Mapping::LINEAR) {
-            position.setArgValue(Dimension::frequency, nexttoward(startFrequency, DBL_MIN));
-            powerMapping->setValue(position, 0);
-        }
-        else
-            throw cRuntimeError("Unknown interpolation mode");
-        // iterate over frequencyGains
-        for (const auto & frequencyGainEntry : frequencyGains) {
-            switch (frequencyGainEntry.frequencyUnit) {
-                case 's':
-                    position.setArgValue(Dimension::frequency, frequencyGainEntry.frequency >= 0 ? startFrequency + frequencyGainEntry.frequency : endFrequency - frequencyGainEntry.frequency);
-                    break;
-                case '%':
-                    position.setArgValue(Dimension::frequency, (1 - frequencyGainEntry.frequency) * startFrequency + frequencyGainEntry.frequency * endFrequency);
-                    break;
-                default:
-                    throw cRuntimeError("Unknown frequency unit");
-            }
-            powerMapping->setValue(position, frequencyGainEntry.gain * power.get());
-        }
-        // must be 0 after the end
-        if (interpolationMode == Mapping::STEPS)
-            position.setArgValue(Dimension::frequency, endFrequency);
-        else if (interpolationMode == Mapping::LINEAR)
-            position.setArgValue(Dimension::frequency, nexttoward(endFrequency, DBL_MAX));
-        else
-            throw cRuntimeError("Unknown interpolation mode");
-        powerMapping->setValue(position, 0);
-    }
-    else
-        throw cRuntimeError("Unknown dimensions");
-    return powerMapping;
+    math::Function<W, simtime_t, Hz> *powerFunction = new math::TwoDimensionalBoxcarFunction<W, simtime_t, Hz>(startTime, endTime, carrierFrequency - bandwidth / 2, carrierFrequency + bandwidth / 2, power);
+//    Mapping *powerMapping = MappingUtils::createMapping(Argument::MappedZero, dimensions, interpolationMode);
+//    Argument position(dimensions);
+//    bool hasTimeDimension = dimensions.hasDimension(Dimension::time);
+//    bool hasFrequencyDimension = dimensions.hasDimension(Dimension::frequency);
+//    if (hasTimeDimension && hasFrequencyDimension) {
+//        double startFrequency = (carrierFrequency - bandwidth / 2).get();
+//        double endFrequency = (carrierFrequency + bandwidth / 2).get();
+//        // must be 0 before the start
+//        if (interpolationMode == Mapping::STEPS)
+//            ; // already 0 where unspecified
+//        else if (interpolationMode == Mapping::LINEAR) {
+//            auto previousTime = startTime;
+//            previousTime.setRaw(previousTime.raw() - 1);
+//            position.setTime(previousTime);
+//            position.setArgValue(Dimension::frequency, startFrequency);
+//            powerMapping->setValue(position, 0);
+//            position.setArgValue(Dimension::frequency, endFrequency);
+//            powerMapping->setValue(position, 0);
+//            position.setTime(startTime);
+//            position.setArgValue(Dimension::frequency, nexttoward(startFrequency, DBL_MIN));
+//            powerMapping->setValue(position, 0);
+//            position.setArgValue(Dimension::frequency, nexttoward(endFrequency, DBL_MAX));
+//            powerMapping->setValue(position, 0);
+//        }
+//        else
+//            throw cRuntimeError("Unknown interpolation mode");
+//        // iterate over timeGains and frequencyGains
+//        for (const auto & timeGainEntry : timeGains) {
+//            switch (timeGainEntry.timeUnit) {
+//                case 's':
+//                    position.setTime(timeGainEntry.time >= 0 ? startTime + timeGainEntry.time : endTime - timeGainEntry.time);
+//                    break;
+//                case '%':
+//                    position.setTime((1 - timeGainEntry.time) * startTime + timeGainEntry.time * endTime);
+//                    break;
+//                default:
+//                    throw cRuntimeError("Unknown time unit");
+//            }
+//            for (const auto & frequencyGainEntry : frequencyGains) {
+//                switch (frequencyGainEntry.frequencyUnit) {
+//                    case 's':
+//                        position.setArgValue(Dimension::frequency, frequencyGainEntry.frequency >= 0 ? startFrequency + frequencyGainEntry.frequency : endFrequency - frequencyGainEntry.frequency);
+//                        break;
+//                    case '%':
+//                        position.setArgValue(Dimension::frequency, (1 - frequencyGainEntry.frequency) * startFrequency + frequencyGainEntry.frequency * endFrequency);
+//                        break;
+//                    default:
+//                        throw cRuntimeError("Unknown frequency unit");
+//                }
+//                powerMapping->setValue(position, timeGainEntry.gain * frequencyGainEntry.gain * power.get());
+//            }
+//        }
+//        // must be 0 after the end
+//        if (interpolationMode == Mapping::STEPS) {
+//            position.setTime(startTime);
+//            position.setArgValue(Dimension::frequency, endFrequency);
+//            powerMapping->setValue(position, 0);
+//            position.setTime(endTime);
+//            position.setArgValue(Dimension::frequency, startFrequency);
+//            powerMapping->setValue(position, 0);
+//            position.setTime(endTime);
+//            position.setArgValue(Dimension::frequency, endFrequency);
+//            powerMapping->setValue(position, 0);
+//        }
+//        else if (interpolationMode == Mapping::LINEAR) {
+//            auto nextTime = endTime;
+//            nextTime.setRaw(nextTime.raw() + 1);
+//            position.setTime(nextTime);
+//            position.setArgValue(Dimension::frequency, startFrequency);
+//            powerMapping->setValue(position, 0);
+//            position.setArgValue(Dimension::frequency, endFrequency);
+//            powerMapping->setValue(position, 0);
+//            position.setTime(endTime);
+//            position.setArgValue(Dimension::frequency, nexttoward(startFrequency, DBL_MIN));
+//            powerMapping->setValue(position, 0);
+//            position.setArgValue(Dimension::frequency, nexttoward(endFrequency, DBL_MAX));
+//            powerMapping->setValue(position, 0);
+//        }
+//        else
+//            throw cRuntimeError("Unknown interpolation mode");
+//    }
+//    else if (hasTimeDimension) {
+//        // must be 0 before the start
+//        if (interpolationMode == Mapping::STEPS)
+//            ; // already 0 where unspecified
+//        else if (interpolationMode == Mapping::LINEAR) {
+//            auto previousTime = startTime;
+//            previousTime.setRaw(previousTime.raw() - 1);
+//            position.setTime(previousTime);
+//            powerMapping->setValue(position, 0);
+//        }
+//        else
+//            throw cRuntimeError("Unknown interpolation mode");
+//        // iterate over timeGains
+//        for (const auto & timeGainEntry : timeGains) {
+//            switch (timeGainEntry.timeUnit) {
+//                case 's':
+//                    position.setTime(timeGainEntry.time >= 0 ? startTime + timeGainEntry.time : endTime - timeGainEntry.time);
+//                    break;
+//                case '%':
+//                    position.setTime((1 - timeGainEntry.time) * startTime + timeGainEntry.time * endTime);
+//                    break;
+//                default:
+//                    throw cRuntimeError("Unknown time unit");
+//            }
+//            powerMapping->setValue(position, timeGainEntry.gain * power.get());
+//        }
+//        // must be 0 after the end
+//        if (interpolationMode == Mapping::STEPS)
+//            position.setTime(endTime);
+//        else if (interpolationMode == Mapping::LINEAR) {
+//            auto nextTime = endTime;
+//            nextTime.setRaw(nextTime.raw() + 1);
+//            position.setTime(nextTime);
+//        }
+//        else
+//            throw cRuntimeError("Unknown interpolation mode");
+//        powerMapping->setValue(position, 0);
+//    }
+//    else if (hasFrequencyDimension) {
+//        double startFrequency = (carrierFrequency - bandwidth / 2).get();
+//        double endFrequency = (carrierFrequency + bandwidth / 2).get();
+//        // must be 0 before the start
+//        if (interpolationMode == Mapping::STEPS)
+//            ; // already 0 where unspecified
+//        else if (interpolationMode == Mapping::LINEAR) {
+//            position.setArgValue(Dimension::frequency, nexttoward(startFrequency, DBL_MIN));
+//            powerMapping->setValue(position, 0);
+//        }
+//        else
+//            throw cRuntimeError("Unknown interpolation mode");
+//        // iterate over frequencyGains
+//        for (const auto & frequencyGainEntry : frequencyGains) {
+//            switch (frequencyGainEntry.frequencyUnit) {
+//                case 's':
+//                    position.setArgValue(Dimension::frequency, frequencyGainEntry.frequency >= 0 ? startFrequency + frequencyGainEntry.frequency : endFrequency - frequencyGainEntry.frequency);
+//                    break;
+//                case '%':
+//                    position.setArgValue(Dimension::frequency, (1 - frequencyGainEntry.frequency) * startFrequency + frequencyGainEntry.frequency * endFrequency);
+//                    break;
+//                default:
+//                    throw cRuntimeError("Unknown frequency unit");
+//            }
+//            powerMapping->setValue(position, frequencyGainEntry.gain * power.get());
+//        }
+//        // must be 0 after the end
+//        if (interpolationMode == Mapping::STEPS)
+//            position.setArgValue(Dimension::frequency, endFrequency);
+//        else if (interpolationMode == Mapping::LINEAR)
+//            position.setArgValue(Dimension::frequency, nexttoward(endFrequency, DBL_MAX));
+//        else
+//            throw cRuntimeError("Unknown interpolation mode");
+//        powerMapping->setValue(position, 0);
+//    }
+//    else
+//        throw cRuntimeError("Unknown dimensions");
+    return powerFunction;
 }
 
 } // namespace physicallayer

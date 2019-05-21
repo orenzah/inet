@@ -157,24 +157,24 @@ std::pair<double, double> Ieee802154UwbIrReceiver::integrateWindow(simtime_t_cre
         arg.setTime(now);
         // consider signal power
         const DimensionalReception *dimensionalSignalReception = check_and_cast<const DimensionalReception *>(reception);
-        const ConstMapping *const signalPower = dimensionalSignalReception->getPower();
-        double measure = signalPower->getValue(arg) * peakPulsePower; //TODO: de-normalize (peakPulsePower should be in AirFrame or in Signal, to be set at run-time)
-        signalValue = measure * 0.5; // we capture half of the maximum possible pulse energy to account for self  interference
-        resPower    = resPower + signalValue;
-        // consider all interferers at this point in time
-        for (const auto & interferingReception : *interferingReceptions) {
-            const DimensionalReception *dimensionalInterferingReception = check_and_cast<const DimensionalReception *>(interferingReception);
-            const ConstMapping *const interferingPower = dimensionalInterferingReception->getPower();
-            double measure = interferingPower->getValue(arg) * peakPulsePower; //TODO: de-normalize (peakPulsePower should be in AirFrame or in Signal, to be set at run-time)
-//          measure = measure * uniform(0, +1); // random point of Efield at sampling (due to pulse waveform and self interference)
-            // take a random point within pulse envelope for interferer
-            resPower = resPower + measure * uniform(-1, +1);
-        }
-//      double attenuatedPower = resPower / 10; // 10 dB = 6 dB implementation loss + 5 dB noise factor
-        vEfield          = sqrt(50*resPower); // P=V²/R
-        // add thermal noise realization
-        const DimensionalNoise *dimensionalBackgroundNoise = check_and_cast<const DimensionalNoise *>(backgroundNoise);
-        vThermalNoise    = dimensionalBackgroundNoise->getPower()->getValue(arg);
+        const math::Function<W, simtime_t, Hz> *const signalPower = dimensionalSignalReception->getPower();
+//        double measure = signalPower->getValue(arg) * peakPulsePower; //TODO: de-normalize (peakPulsePower should be in AirFrame or in Signal, to be set at run-time)
+//        signalValue = measure * 0.5; // we capture half of the maximum possible pulse energy to account for self  interference
+//        resPower    = resPower + signalValue;
+//        // consider all interferers at this point in time
+//        for (const auto & interferingReception : *interferingReceptions) {
+//            const DimensionalReception *dimensionalInterferingReception = check_and_cast<const DimensionalReception *>(interferingReception);
+//            const math::Function<W, simtime_t, Hz> *const interferingPower = dimensionalInterferingReception->getPower();
+//            double measure = interferingPower->getValue(arg) * peakPulsePower; //TODO: de-normalize (peakPulsePower should be in AirFrame or in Signal, to be set at run-time)
+////          measure = measure * uniform(0, +1); // random point of Efield at sampling (due to pulse waveform and self interference)
+//            // take a random point within pulse envelope for interferer
+//            resPower = resPower + measure * uniform(-1, +1);
+//        }
+////      double attenuatedPower = resPower / 10; // 10 dB = 6 dB implementation loss + 5 dB noise factor
+//        vEfield          = sqrt(50*resPower); // P=V²/R
+//        // add thermal noise realization
+//        const DimensionalNoise *dimensionalBackgroundNoise = check_and_cast<const DimensionalNoise *>(backgroundNoise);
+//        vThermalNoise    = dimensionalBackgroundNoise->getPower()->getValue(arg);
         vmeasured        = vEfield + vThermalNoise;
         vmeasured_square = pow(vmeasured, 2);
         // signal + interference + noise

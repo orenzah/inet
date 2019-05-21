@@ -18,18 +18,50 @@
 #ifndef __INET_DIMENSIONALANALOGMODELBASE_H
 #define __INET_DIMENSIONALANALOGMODELBASE_H
 
-#include "inet/common/mapping/MappingBase.h"
+#include "inet/common/math/Function.h"
 #include "inet/physicallayer/base/packetlevel/AnalogModelBase.h"
+#include "inet/physicallayer/contract/packetlevel/IRadioMedium.h"
 
 namespace inet {
 
 namespace physicallayer {
 
+class AttenuationFunction : public math::Function<double, simtime_t, Hz>
+{
+  protected:
+    const IRadioMedium *radioMedium = nullptr;
+    const double transmitterAntennaGain;
+    const double receiverAntennaGain;
+    const Coord transmissionPosition;
+    const Coord receptionPosition;
+    m distance;
+
+  public:
+    AttenuationFunction(const IRadioMedium *radioMedium, const double transmitterAntennaGain, const double receiverAntennaGain, const Coord transmissionPosition, const Coord receptionPosition) :
+        radioMedium(radioMedium), transmitterAntennaGain(transmitterAntennaGain), receiverAntennaGain(receiverAntennaGain), transmissionPosition(transmissionPosition), receptionPosition(receptionPosition)
+    {
+        distance = m(transmissionPosition.distance(receptionPosition));
+    }
+
+    virtual double getValue(const math::Point<simtime_t, Hz>& p) const override {
+        auto frequency = std::get<1>(p);
+        auto propagationSpeed = radioMedium->getPropagation()->getPropagationSpeed();
+        auto pathLoss = radioMedium->getPathLoss()->computePathLoss(propagationSpeed, frequency, distance);
+        // TODO: obstacle loss is time dependent
+        auto obstacleLoss = radioMedium->getObstacleLoss() ? radioMedium->getObstacleLoss()->computeObstacleLoss(frequency, transmissionPosition, receptionPosition) : 1;
+        return std::min(1.0, transmitterAntennaGain * receiverAntennaGain * pathLoss * obstacleLoss);
+    }
+
+    virtual void iterateInterpolatable(const math::Interval<simtime_t, Hz>& i, const std::function<void (const math::Interval<simtime_t, Hz>& i)> f) const override {
+        // TODO: this function is continuous in frequency, so what should we do?
+        f(i);
+    }
+};
+
 class INET_API DimensionalAnalogModelBase : public AnalogModelBase
 {
   protected:
     bool attenuateWithCarrierFrequency;
-    Mapping::InterpolationMethod interpolationMode;
 
   protected:
     virtual void initialize(int stage) override;
@@ -37,7 +69,7 @@ class INET_API DimensionalAnalogModelBase : public AnalogModelBase
   public:
     virtual std::ostream& printToStream(std::ostream& stream, int level) const override;
 
-    virtual const ConstMapping *computeReceptionPower(const IRadio *radio, const ITransmission *transmission, const IArrival *arrival) const;
+    virtual const math::Function<W, simtime_t, Hz> *computeReceptionPower(const IRadio *radio, const ITransmission *transmission, const IArrival *arrival) const;
     virtual const INoise *computeNoise(const IListening *listening, const IInterference *interference) const override;
     virtual const INoise *computeNoise(const IReception *reception, const INoise *noise) const override;
     virtual const ISnir *computeSNIR(const IReception *reception, const INoise *noise) const override;
