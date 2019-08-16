@@ -22,13 +22,13 @@ import inet.common.queueing.contract.IPacketQueue;
 //
 // PPP implementation.
 //
-// Packets are encapsulated in ~PppFrame.
+// Packets are encapsulated in <a href="src-inet-linklayer-ppp-PppFrame.msg.html">PppFrame</a>.
 //
 // PPP is a complex protocol with strong support for link configuration
 // and maintenance. This model ignores those details, and only performs
 // simple encapsulation/decapsulation and queuing.
 //
-// In routers, PPP relies on an external queue module (see ~IOutputQueue)
+// In routers, PPP relies on an external queue module
 // to model finite buffer, implement QoS and/or RED, and requests packets
 // from this external queue one-by-one.
 //
@@ -41,7 +41,7 @@ import inet.common.queueing.contract.IPacketQueue;
 // There is no buffering done on received packets -- they are just decapsulated
 // and sent up immediately.
 //
-// @see ~PppInterface, ~IOutputQueue, ~PppFrame
+// @see ~PppInterface
 //
 module Ppp
 {

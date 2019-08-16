@@ -22,8 +22,7 @@ package inet.node.xmipv6;
 
 import inet.node.ipv6.Router6;
 
-//
-// Ipv6 router Configured to operate as a Home Agent in a network supporting MIPv6.
+//Pv6 router Configured to operate as a Home Agent in a network supporting MIPv6.
 //
 module HomeAgent6 extends Router6
 {

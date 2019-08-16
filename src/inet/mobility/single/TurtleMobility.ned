@@ -50,7 +50,7 @@ import inet.mobility.base.MovingMobilityBase;
 //     </movement>
 // </nohtml></pre>
 //
-// Random Waypoint:
+// ~RandomWaypointMobility:
 //
 // <pre><nohtml>
 //     <movement>
@@ -60,9 +60,6 @@ import inet.mobility.base.MovingMobilityBase;
 //         </repeat>
 //     </movement>
 // </nohtml></pre>
-//
-// Commands (XML element names) are: repeat, set, forward, turn, wait,
-// moveto, and moveby.
 //
 // Accepted attributes:
 //    - repeat: n (optional)

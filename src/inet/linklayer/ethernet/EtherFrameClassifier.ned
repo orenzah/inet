@@ -22,7 +22,7 @@ import inet.common.queueing.base.PacketClassifierBase;
 import inet.common.queueing.contract.IPacketClassifier;
 
 //
-// Simple classifier, that forwards EtherPauseFrames
+// Simple classifier, that forwards ~EtherPauseFrames
 // to the pauseOut gates, and other frames to the defaultOut
 // gate.
 //

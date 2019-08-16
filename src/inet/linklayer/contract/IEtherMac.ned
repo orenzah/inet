@@ -22,8 +22,6 @@ package inet.linklayer.contract;
 // should implement this (i.e. declared as: EtherMac like IEtherMac).
 // The existing implementations are these: ~EtherMac and ~EtherMacFullDuplex.
 //
-// Doesn't do encapsulation/decapsulation; see ~EtherEncap for that.
-//
 // Expected environment:
 // - phys$i and phys$o should be connected to the "network"
 // - upperLayerIn and upperLayerOut are usually connected to ~EtherEncap (in hosts)
@@ -32,7 +30,7 @@ package inet.linklayer.contract;
 // The module does not perform encapsulation or decapsulation of frames --
 // this is done by higher layers (~EtherEncap).
 //
-// When a frame is received from the higher layers, it must be an ~EtherFrame,
+// When a frame is received from the higher layers, it must be an EtherFrame,
 // and with all protocol fields filled out
 // (including the destination MAC address). The source address, if left empty,
 // will be filled in. Then frame is queued and transmitted according
