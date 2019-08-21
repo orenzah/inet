@@ -22,7 +22,7 @@ import inet.transportlayer.contract.ITcp;
 
 //
 // TCP model based on the Network Simulation Cradle by Sam Jansen.
-// The NSC is available on the http://research.wand.net.nz/software/nsc.php page.
+// The NSC is available on <a href="http://research.wand.net.nz/software/nsc.php" target="_blank">this page</a>.
 // You must read the inet/3dparty/README before use this TCP implementation.
 // This model is compatible with both IPv4 (~Ipv4) and IPv6 (~Ipv6).
 // The TCP_TRANSFER_OBJECT data transfer mode isn't implemented yet.
@@ -43,8 +43,8 @@ simple TcpNsc like ITcp
         // full library name of the tcp stack implementation
         string stackName @choice("liblinux2.6.10.so","liblinux2.6.18.so","liblinux2.6.26.so","liblwip.so","libopenbsd3.5.so","libfreebsd5.3.so") = default("liblinux2.6.26.so");
         int stackBufferSize = default(80000); // the size of buffer used when communicating with the specified NSC stack
-        string sendQueueClass = default("");    // Obsolete!!!
-        string receiveQueueClass = default(""); // Obsolete!!!
+        string sendQueueClass = default("");    //# TODO: Obsolete!!!
+        string receiveQueueClass = default(""); //# TODO: Obsolete!!!
         string crcMode @enum("declared", "computed") = default("declared");
         @display("i=block/wheelbarrow");
 
