@@ -26,7 +26,7 @@ namespace inet {
 
 namespace visualizer {
 
-class INET_API OpenstreetmapCanvasVisualizer : public SceneVisualizerBase
+class INET_API OpenStreetMapCanvasVisualizer : public SceneVisualizerBase
 {
   protected:
     double zIndex = NaN;
@@ -42,5 +42,5 @@ class INET_API OpenstreetmapCanvasVisualizer : public SceneVisualizerBase
 
 } // namespace inet
 
-#endif // ifndef __INET_SCENECANVASVISUALIZER_H
+#endif // ifndef __INET_OPENSTREETMAPCANVASVISUALIZER_H
 

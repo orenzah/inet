@@ -16,7 +16,7 @@
 //
 
 #include "inet/common/ModuleAccess.h"
-#include "inet/visualizer/scene/OpenstreetmapCanvasVisualizer.h"
+#include "OpenStreetMapCanvasVisualizer.h"
 
 using namespace inet::osm;
 
@@ -25,9 +25,9 @@ namespace inet {
 namespace visualizer {
 
 
-Define_Module(OpenstreetmapCanvasVisualizer);
+Define_Module(OpenStreetMapCanvasVisualizer);
 
-void OpenstreetmapCanvasVisualizer::initialize(int stage)
+void OpenStreetMapCanvasVisualizer::initialize(int stage)
 {
     SceneVisualizerBase::initialize(stage);
     if (!hasGUI()) return;
@@ -37,14 +37,14 @@ void OpenstreetmapCanvasVisualizer::initialize(int stage)
     }
 }
 
-cFigure::Point OpenstreetmapCanvasVisualizer::toCanvas(const Map& map, double lat, double lon)
+cFigure::Point OpenStreetMapCanvasVisualizer::toCanvas(const Map& map, double lat, double lon)
 {
     double x = 1000*(lon-map.minlon)/(map.maxlon-map.minlon);
     double y = 800*(map.maxlat-lat)/(map.maxlat-map.minlat);
     return { x, y };
 }
 
-void OpenstreetmapCanvasVisualizer::drawMap(const Map& map)
+void OpenStreetMapCanvasVisualizer::drawMap(const Map& map)
 {
     const cFigure::Color COLOR_HIGHWAY_PRIMARY = {255,255,120};
     const cFigure::Color COLOR_HIGHWAY_RESIDENTIAL = {240,240,240};
