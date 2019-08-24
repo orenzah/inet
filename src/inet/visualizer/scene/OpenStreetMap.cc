@@ -21,6 +21,10 @@ namespace inet {
 
 namespace osm {
 
+Map::~Map()
+{
+}
+
 Map Map::loadMap(cXMLElement *mapRoot)
 {
     Map map;
