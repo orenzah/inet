@@ -19,6 +19,7 @@
 #define __INET_OPENSTREETMAPCANVASVISUALIZER_H
 
 #include "inet/common/geometry/common/CanvasProjection.h"
+#include "inet/common/geometry/common/GeographicCoordinateSystem.h"
 #include "inet/visualizer/base/SceneVisualizerBase.h"
 #include "inet/visualizer/scene/OpenStreetMap.h"
 
@@ -30,6 +31,8 @@ class INET_API OpenStreetMapCanvasVisualizer : public SceneVisualizerBase
 {
   protected:
     double zIndex = NaN;
+    cCanvas *canvas = nullptr;
+    IGeographicCoordinateSystem *coordinateSystem = nullptr;
     CanvasProjection *canvasProjection = nullptr;
 
   protected:

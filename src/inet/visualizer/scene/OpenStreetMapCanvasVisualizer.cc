@@ -33,15 +33,23 @@ void OpenStreetMapCanvasVisualizer::initialize(int stage)
     if (!hasGUI()) return;
     if (stage == INITSTAGE_LOCAL) {
         zIndex = par("zIndex");
-        cCanvas *canvas = visualizationTargetModule->getCanvas();
+        canvas = visualizationTargetModule->getCanvas();
+        coordinateSystem = getModuleFromPar<IGeographicCoordinateSystem>(par("coordinateSystemModule"), this);
+        canvasProjection = CanvasProjection::getCanvasProjection(canvas);
+
+        cXMLElement *mapXml = par("mapFile").xmlValue();
+        Map map = Map::loadMap(mapXml);
+        EV << "loaded " << map.nodes.size() << " nodes, " << map.ways.size() << " ways\n";
+
+        drawMap(map);
     }
 }
 
 cFigure::Point OpenStreetMapCanvasVisualizer::toCanvas(const Map& map, double lat, double lon)
 {
-    double x = 1000*(lon-map.minlon)/(map.maxlon-map.minlon);
-    double y = 800*(map.maxlat-lat)/(map.maxlat-map.minlat);
-    return { x, y };
+    Coord coord = coordinateSystem->computeSceneCoordinate(GeoCoord(deg(lat), deg(lon), m(0)));
+    cFigure::Point p = canvasProjection->computeCanvasPoint(coord);
+    return p;
 }
 
 void OpenStreetMapCanvasVisualizer::drawMap(const Map& map)
@@ -50,7 +58,6 @@ void OpenStreetMapCanvasVisualizer::drawMap(const Map& map)
     const cFigure::Color COLOR_HIGHWAY_RESIDENTIAL = {240,240,240};
     const cFigure::Color COLOR_HIGHWAY_PATH = {128,128,128};
 
-    cCanvas *canvas = getSystemModule()->getCanvas();
     for (const auto& way : map.ways) {
         std::vector<cFigure::Point> points;
         for (const auto& node : way->nodes)

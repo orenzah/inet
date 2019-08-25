@@ -1,16 +1,21 @@
 package inet.examples.openstreetmap;
 
+import inet.common.geometry.common.SimpleGeographicCoordinateSystem;
 import inet.environment.common.PhysicalEnvironment;
-import inet.visualizer.integrated.IntegratedVisualizer;
+import inet.visualizer.scene.OpenStreetMapCanvasVisualizer;
+
 
 network OpenStreetMapExample
 {
     parameters:
-        @display("bgb=0,0");
+        @display("bgb=1000,1000");
     submodules:
-        visualizer: IntegratedVisualizer {
+        visualizer: OpenStreetMapCanvasVisualizer {
             parameters:
                 @display("p=100,50");
+        }
+        coordinateSystem: SimpleGeographicCoordinateSystem {
+            @display("p=393,148");
         }
         physicalEnvironment: PhysicalEnvironment {
             parameters:
