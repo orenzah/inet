@@ -24,39 +24,110 @@ namespace inet {
 
 namespace osm {
 
-//TODO wrap into getters
+typedef int64_t id_t;
 
-class Node {
-public:
-  std::string id;
-  double lat, lon;
-  std::map<std::string,std::string> tags;  //TODO stringpool; char*[]: k1,v1,k2,v2,...,nullptr
-  std::string getTag(const std::string& k) const {auto it = tags.find(k); return it == tags.end() ? "" : it->second;}
+class INET_API Tags {
+  private:
+    std::vector<const char *> kvpairs;
+  public:
+    void add(const char *k, const char *v) {kvpairs.push_back(k); kvpairs.push_back(v);}
+    const char *get(const char *k) const;
 };
 
-class Way {
-public:
-  std::string id;
-  std::vector<Node*> nodes;
-  std::map<std::string,std::string> tags;
-  std::string getTag(const std::string& k) const {auto it = tags.find(k); return it == tags.end() ? "" : it->second;}
+class INET_API Node {
+  private:
+    friend class StreetMap;
+    id_t id;
+    double lat, lon;
+    Tags tags;
+  public:
+    id_t getId() const {return id;}
+    double getLat() const {return lat;}
+    double getLon() const {return lon;}
+    const char *getTag(const char *k) const {return tags.get(k);}
 };
 
-//TODO
-//class Relationship {
-//};
-
-class Map {
-public:
-  double minlat, minlon, maxlat, maxlon;
-  std::vector<Node*> nodes;
-  std::vector<Way*> ways;
-  //TODO relationships
-  ~Map();
-  static Map loadMap(cXMLElement *mapRoot);
+class INET_API Way {
+  private:
+    friend class StreetMap;
+    id_t id;
+    std::vector<const Node*> nodes;
+    Tags tags;
+  public:
+    id_t getId() const {return id;}
+    const std::vector<const Node*>& getNodes() const {return nodes;}
+    const char *getTag(const char *k) const {return tags.get(k);}
 };
 
-} // namespace osm
+class Relation;
+
+class INET_API Member {
+  private:
+    friend class StreetMap;
+    enum Type { NODE, WAY, RELATION } type;
+    bool resolved;
+    union {
+        Node *node;
+        Way *way;
+        Relation *relation;
+        id_t unresolvedId;
+    };
+    const char *role;
+  public:
+    Type getType() const {return type;}
+    bool isResolved() const {return resolved;}
+    Node *getNode() const {return type==NODE && resolved ? node : nullptr;}
+    Way *getWay() const {return type==WAY && resolved ? way : nullptr;}
+    Relation *getRelation() const {return type==RELATION && resolved ? relation : nullptr;}
+    id_t getUnresolvedId() const {return resolved ? 0 : unresolvedId;}
+    const char *getRole() const {return role;}
+};
+
+class INET_API Relation {
+  private:
+    friend class StreetMap;
+    id_t id;
+    std::vector<Member> members;
+    Tags tags;
+  public:
+    id_t getId() const {return id;}
+    const std::vector<Member>& getMembers() const {return members;}
+    const char *getTag(const char *k) const {return tags.get(k);}
+};
+
+struct Bounds {
+    double minlat, minlon, maxlat, maxlon;
+};
+
+/**
+ * Represents OpenStreetMap map data, as loaded from an OSM file.
+ * OSM files can be obtained e.g. by exporting from http://openstreetmap.org.
+ */
+class INET_API StreetMap {
+  private:
+    Bounds bounds;
+    std::vector<const Node*> nodes;
+    std::vector<const Way*> ways;
+    std::vector<const Relation*> relations;
+    std::set<std::string> *strings = new std::set<std::string>();
+    const char *getPooled(const char *s);
+    void releaseAllocations();
+    void parseTags(cXMLElement *parent, Tags& intoTags);
+  public:
+    StreetMap() {}
+    StreetMap(const StreetMap&) = delete;
+    StreetMap(StreetMap&& other);
+    ~StreetMap();
+    void operator=(const StreetMap&) = delete;
+    void operator=(StreetMap&&);
+    const Bounds& getBounds() const {return bounds;};
+    const std::vector<const Node*>& getNodes() const {return nodes;}
+    const std::vector<const Way*>& getWays() const {return ways;}
+    const std::vector<const Relation*>& getRelations() const {return relations;}
+    static StreetMap from(cXMLElement *mapRoot);
+};
+
+}; //namespace osm
 
 } // namespace inet
 
