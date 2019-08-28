@@ -126,6 +126,7 @@ const Protocol Protocol::tteth("tteth", "TT-ETH");
 const Protocol Protocol::udp("udp", "UDP", Protocol::TransportLayer);
 const Protocol Protocol::xmac("xmac", "X-MAC");
 const Protocol Protocol::xtp("xtp", "XTP");
+const Protocol Protocol::rimac("rimac", "RI-MAC");
 
 // INET specific conceptual protocol identifiers
 const Protocol Protocol::ackingMac("ackingmac", "Acking MAC");
