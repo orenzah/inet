@@ -1,4 +1,5 @@
 //
+// Copyright (C) 2019 Oren Zaharia @ Ben-Gurion University
 // Copyright (C) 2017 Jan Peter Drees
 // Copyright (C) 2015 Joaquim Oller
 //
@@ -162,8 +163,9 @@ class INET_API RIMac : public MacProtocolBase, public IMacProtocol
         SEND_REPORT,        //13
         SEND_BEACON_W,      //14
         WAIT_BACKOFF,       //15
-        WAIT_BEACON,         //16
-        SEND_BEACON         //17
+        WAIT_BEACON,        //16
+        SEND_BEACON,         //17
+        WAIT_BEACON_TX_END  //18
       };
     /** @brief The current state of the protocol */
     States macState;
@@ -195,6 +197,7 @@ class INET_API RIMac : public MacProtocolBase, public IMacProtocol
     cMessage *rimac_col_ended;
     cMessage *rimac_backoff_to;
     cMessage *rimac_rcv_start;
+    cMessage *rimac_beacon_end;
 
     /** @name Help variables for the acknowledgment process. */
     /*@{*/

@@ -1,4 +1,5 @@
 //
+// Copyright (C) 2019 Oren Zaharia @ Ben-Gurion University
 // Copyright (C) 2017 Jan Peter Drees
 // Copyright (C) 2015 Joaquim Oller
 //
@@ -166,6 +167,8 @@ void RIMac::initialize(int stage)
         rimac_rcv_start = new cMessage("rimac_rcv_start");
         rimac_rcv_start->setKind(RIMAC_RCV_STARTED);
 
+        rimac_beacon_end = new cMessage("rimac_beacon_end");
+        rimac_beacon_end->setKind(RIMAC_BEACON_ENDED);
 
 
         auto preamble = makeShared<RIMacHeader>();
@@ -530,8 +533,11 @@ void RIMac::handleSelfMessage(cMessage *msg)
         {
             if (radio->getRadioMode() == IRadio::RADIO_MODE_TRANSMITTER)
             {
+                macState = WAIT_BEACON_TX_END;
+                changeDisplayColor(YELLOW);
                 changeColor("green");
                 sendPreamble();
+
                 return;
             }
         }
@@ -711,10 +717,9 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 // TODO: check windowSize, there is a maximum
                 // TODO: do we need here a maxPropagation add of time?
                 isBackoff = false;
-                sendWindow(0);
-                macState = WAIT_REPORT;
-                scheduleAt(simTime() + sifs, switch_preamble_phase);
+                macState = WAIT_BEACON_TX_END;
                 changeDisplayColor(YELLOW);
+                sendWindow(0);
                 return;
             }
         }
@@ -727,12 +732,22 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 // TODO: check windowSize, there is a maximum
                 // TODO: do we need here a maxPropagation add of time?
                 isBackoff = true;
-                sendWindow(this->windowSize);
-                macState = WAIT_REPORT;
-                scheduleAt(simTime() + sifs, switch_preamble_phase);
+                macState = WAIT_BEACON_TX_END;
                 changeDisplayColor(YELLOW);
+                sendWindow(this->windowSize);
                 return;
             }
+        }
+        break;
+    case WAIT_BEACON_TX_END:
+        if (msg->getKind() == RIMAC_BEACON_ENDED)
+        {
+            // TODO: check windowSize, there is a maximum
+            // TODO: do we need here a maxPropagation add of time?
+            macState = WAIT_REPORT;
+            scheduleAt(simTime() + sifs, switch_preamble_phase);
+            changeDisplayColor(YELLOW);
+            return;
         }
         break;
     case WAIT_PREAMBLE:
@@ -809,7 +824,23 @@ void RIMac::handleSelfMessage(cMessage *msg)
             auto incoming_data = check_and_cast<Packet *>(msg)->peekAtFront<RIMacHeader>();
             auto tx_frame = currentTxFrame->peekAtFront<RIMacHeader>();
 
-            if (tx_frame->getWindowSize() > 0)
+            if (incoming_data->getSrcAddr() != tx_frame->getDestAddr())
+            {
+                //ignore, that is return
+                EV << "node " << address << " : State WAIT_PREAMBLE, received RIMAC_PREAMBLE, not for me, IGNORE" << endl;
+                return;
+            }
+            if (tx_frame->getWindowSize() == 0)
+            {
+                //send the tx_frame
+                EV << "node " << address << " : State WAIT_PREAMBLE, received RIMAC_PREAMBLE, new state SEND_REPORT" << endl;
+                macState = SEND_REPORT;
+                changeDisplayColor(YELLOW);
+                //double switchingTime = par("switchingTime"); TODO
+                scheduleAt(simTime() + sifs, switch_preamble_phase);
+                return;
+            }
+            else if (tx_frame->getWindowSize() > 0)
             {
                 // there was or still collision, give up and go to sleep
                 cancelEvent(report_preamble_to);
@@ -823,10 +854,17 @@ void RIMac::handleSelfMessage(cMessage *msg)
         }
         break;
     case SEND_REPORT:
-        if (msg->getKind() == RIMAC_SEND_REPORT)
+        if (msg->getKind() == SWITCH_PREAMBLE_PHASE)
+        {
+            radio->setRadioMode(IRadio::RADIO_MODE_TRANSMITTER);
+            scheduleAt(simTime(), send_report);
+            return;
+        }
+        else if (msg->getKind() == RIMAC_SEND_REPORT)
         {
             auto tx_frame = currentTxFrame->peekAtFront<RIMacHeader>();
             cancelEvent(report_preamble_to);
+
             sendReportPacket();
             macState = WAIT_TX_DATA_OVER;
             changeDisplayColor(GREEN);
@@ -881,6 +919,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
             cout << "WAIT_ACK" << endl;
             cout << "wakeup->isScheduled() = "<< wakeup->isScheduled() << endl;
             cout << "wakeup->getArrivalTime() = "<< wakeup->getArrivalTime() << endl;
+
             return;
         }
         else if (msg->getKind() == SWITCH_PREAMBLE_PHASE)
@@ -958,7 +997,8 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 macState = WAIT_BACKOFF;
                 changeDisplayColor(YELLOW);
                 // Backoff for 10.0f check interval
-                scheduleAt(simTime() + 1.0f * backoff * slotDuration, send_report);
+                //scheduleAt(simTime() + 1.0f * backoff * slotDuration, send_report);
+                scheduleAt(simTime() + 1.0f * backoff * slotDuration, switch_preamble_phase);
             }
             return;
         }
@@ -973,16 +1013,17 @@ void RIMac::handleSelfMessage(cMessage *msg)
         }
         break;
     case WAIT_BACKOFF:
+        if (msg->getKind() == SWITCH_PREAMBLE_PHASE)
+        {
+            scheduleAt(simTime() + sifs, send_report);
+            return;
+        }
         if (msg->getKind() == RIMAC_SEND_REPORT)
         {
             macState = SEND_REPORT;
             changeDisplayColor(YELLOW);
             radio->setRadioMode(IRadio::RADIO_MODE_TRANSMITTER);
-            if (send_report->isScheduled())
-            {
-                cancelEvent(send_report);
-            }
-            scheduleAt(simTime() + sifs, send_report);
+            scheduleAt(simTime(), send_report);
             return;
         }
         else if (msg->getKind() == RIMAC_BEACON)
@@ -1221,6 +1262,10 @@ void RIMac::receiveSignal(cComponent *source, simsignal_t signalID, long value, 
             {
                 scheduleAt(simTime(), data_tx_over);
             }
+            if (macState == WAIT_BEACON_TX_END)
+            {
+                scheduleAt(simTime(), rimac_beacon_end);
+            }
         }
         transmissionState = newRadioTransmissionState;
     }
@@ -1346,11 +1391,11 @@ void RIMac::changeDisplayColor(RIMAC_COLORS color)
 
         case CCA:
             dispStr.setTagArg("t", 0, "CCA");
-            dispStr.setTagArg("t", 2, "red");
+            dispStr.setTagArg("t", 2, "#FF0000");
             break;
         case WAIT_REPORT:
             dispStr.setTagArg("t", 0, "WAIT_REPORT");
-            dispStr.setTagArg("t", 2, "yellow");
+            dispStr.setTagArg("t", 2, "#FFFF00");
             break;
         case SEND_REPORT:
             dispStr.setTagArg("t", 0, "SEND_REPORT");
@@ -1358,35 +1403,39 @@ void RIMac::changeDisplayColor(RIMAC_COLORS color)
             break;
         case WAIT_PREAMBLE:
             dispStr.setTagArg("t", 0, "WAIT_PREAMBLE");
-            dispStr.setTagArg("t", 2, "green");
+            dispStr.setTagArg("t", 2, "#FFD500");
             break;
         case SEND_PREAMBLE:
             dispStr.setTagArg("t", 0, "SEND_PREAMBLE");
-            dispStr.setTagArg("t", 2, "yellow");
+            dispStr.setTagArg("t", 2, "#A2FF00");
             break;
         case SEND_BEACON_W:
             dispStr.setTagArg("t", 0, "SEND_BEACON_W");
             dispStr.setTagArg("t", 2, "#7E7027");
             break;
+        case SEND_BEACON:
+            dispStr.setTagArg("t", 0, "SEND_BEACON");
+            dispStr.setTagArg("t", 2, "#00FF13");
+            break;
         case WAIT_ACK:
             dispStr.setTagArg("t", 0, "WAIT_ACK");
             dispStr.setTagArg("t", 2, "#7FFFFF");
             break;
-        case SEND_PREAMBLE_AWAKE:
-        case SEND_DATA:
-            dispStr.setTagArg("t", 0, "SEND");
+        case WAIT_BEACON_TX_END:
+            dispStr.setTagArg("t", 0, "TRANSMITTING BEACON");
+            dispStr.setTagArg("t", 2, "#00FF13");
             break;
         case WAIT_BACKOFF:
             dispStr.setTagArg("t", 0, "WAIT_BACKOFF");
-            dispStr.setTagArg("t", 2, "#037537");
+            dispStr.setTagArg("t", 2, "#FF5500");
             break;
         case WAIT_BEACON:
             dispStr.setTagArg("t", 0, "WAIT_BEACON");
-            dispStr.setTagArg("t", 2, "red");
+            dispStr.setTagArg("t", 2, "#FFB900");
             break;
         case WAIT_TX_DATA_OVER:
-            dispStr.setTagArg("t", 0, "TRANSMITTING");
-            dispStr.setTagArg("t", 2, "green");
+            dispStr.setTagArg("t", 0, "TRANSMITTING DATA");
+            dispStr.setTagArg("t", 2, "#001FFF");
             break;
 
         default:

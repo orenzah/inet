@@ -1,4 +1,5 @@
 //
+// Copyright (C) 2019 Oren Zaharia @ Ben-Gurion University
 // Copyright (C) 2017 Jan Peter Drees
 //
 // This program is free software; you can redistribute it and/or
@@ -54,6 +55,7 @@ enum RIMacTypes {
     RIMAC_COLLISION_ENDED = 217;
     RIMAC_BACKOFF_TO = 218;
     RIMAC_RCV_STARTED = 219;
+    RIMAC_BEACON_ENDED = 220;
 };
 
 //
