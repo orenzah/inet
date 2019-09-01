@@ -1063,10 +1063,14 @@ void RIMac::handleSelfMessage(cMessage *msg)
             {
                 cancelEvent(send_report);
             }
+            if (switch_preamble_phase->isScheduled())
+            {
+                cancelEvent(switch_preamble_phase);
+            }
             macState = WAIT_BACKOFF;
             changeDisplayColor(GREEN);
             printState();
-            scheduleAt(simTime() + 1.0f * slotDuration * backoff, send_report);
+            scheduleAt(simTime() + 1.0f * slotDuration * backoff, switch_preamble_phase);
             cout << "Wait " << 1.0f * slotDuration * backoff << " s" << endl;
         }
         break;
