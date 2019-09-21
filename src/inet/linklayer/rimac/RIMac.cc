@@ -568,22 +568,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 if (currentTxFrame == nullptr)
                 {
                     popTxQueue();
-                    cout << "WAIT_PREAMBLE: radio is: ";
-                    switch (radio->getReceptionState())
-                    {
-                    case 0:
-                        cout << "RECEPTION_STATE_UNDEFINED" << endl;
-                        break;
-                    case 1:
-                        cout << "RECEPTION_STATE_IDLE" << endl;
-                        break;
-                    case 2:
-                        cout << "RECEPTION_STATE_BUSY" << endl;
-                        break;
-                    case 3:
-                        cout << "RECEPTION_STATE_RECEIVING" << endl;
-                        break;
-                    }
                 }
                 return;
             }
@@ -1018,7 +1002,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
             scheduleAt(simTime() + sifs, send_report);
             return;
         }
-        if (msg->getKind() == RIMAC_SEND_REPORT)
+        else if (msg->getKind() == RIMAC_SEND_REPORT)
         {
             macState = SEND_REPORT;
             changeDisplayColor(YELLOW);
@@ -1030,6 +1014,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
         {
             // This scenario is impposible
             // TODO: add to receptionStateChanged, change macState to WAIT_BEACON if BUSY or RECEIVING
+            return;
         }
         else if (msg->getKind() == RIMAC_WAKE_UP)
         {
@@ -1068,6 +1053,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
             printState();
             scheduleAt(simTime() + 1.0f * slotDuration * backoff, send_report);
             cout << "Wait " << 1.0f * slotDuration * backoff << " s" << endl;
+            return;
         }
         break;
     throw cRuntimeError("Undefined event of type %d in state %d (Radio state %d)!",
@@ -1199,12 +1185,14 @@ void RIMac::receiveSignal(cComponent *source, simsignal_t signalID, long value, 
 
                 macState = WAIT_BEACON;
                 changeDisplayColor(RED);
+                cancelEvent(switch_preamble_phase);
                 cancelEvent(send_report);
             }
             else if (radio->getReceptionState() == IRadio::RECEPTION_STATE_RECEIVING)
             {
                 macState = WAIT_BEACON;
                 changeDisplayColor(RED);
+                cancelEvent(switch_preamble_phase);
                 cancelEvent(send_report);
             }
         }
