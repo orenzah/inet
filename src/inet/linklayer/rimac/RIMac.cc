@@ -374,7 +374,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
         if (msg->getKind() == RIMAC_START_RIMAC)
         {
             EV << address << endl;
-            cout << address << endl;
             EV_DEBUG << "State INIT, message RIMAC_START, new state SLEEP" << endl;
             changeDisplayColor(BLACK);
             radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
@@ -420,7 +419,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 auto origTime = wakeup->getArrivalTime();
                 cancelEvent(wakeup);
                 double  rand = uniform(0.1, 0.5);
-                cout << "CCA slot offset: " << rand * sleepInterval << endl;
                 scheduleAt(origTime +  rand * sleepInterval, wakeup);
 
                 macState = SLEEP;
@@ -459,7 +457,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 auto origTime = wakeup->getArrivalTime();
                 cancelEvent(wakeup);
                 double  rand = uniform(0.1, 0.5);
-                cout << "CCA slot offset: " << rand * slotDuration << endl;
                 scheduleAt(origTime +  rand * sleepInterval, wakeup);
                 scheduleAt(simTime() + 1.0f*slotDuration, report_preamble_to);
                 macState = WAIT_PREAMBLE;
@@ -475,7 +472,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 auto origTime = wakeup->getArrivalTime();
                 cancelEvent(wakeup);
                 double  rand = uniform(0.1, 0.5);
-                cout << "CCA slot offset: " << rand * sleepInterval << endl;
                 scheduleAt(origTime +  rand * sleepInterval, wakeup);
                 macState = SLEEP;
                 changeDisplayColor(BLACK);
@@ -497,7 +493,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
             auto origTime = wakeup->getArrivalTime();
             cancelEvent(wakeup);
             double  rand = uniform(0.1, 0.5);
-            cout << "CCA slot offset: " << rand * sleepInterval << endl;
             scheduleAt(origTime +  rand * sleepInterval, wakeup);
             macState = SLEEP;
             changeDisplayColor(BLACK);
@@ -516,7 +511,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
             auto origTime = wakeup->getArrivalTime();
             cancelEvent(wakeup);
             double  rand = uniform(0.1, 0.5);
-            cout << "CCA slot offset: " << rand * sleepInterval << endl;
+
             scheduleAt(origTime +  rand * sleepInterval, wakeup);
             macState = SLEEP;
             changeDisplayColor(BLACK);
@@ -603,21 +598,11 @@ void RIMac::handleSelfMessage(cMessage *msg)
         {
             auto packet = check_and_cast<Packet *>(msg);
             auto mac = packet->peekAtFront<RIMacHeader>();
-            cout << "Packas Data has arrived" << endl;
-            cout << "Radio reception state: "<< radio->getReceptionState() << endl;
-            if (packet->hasBitError())
-            {
-                cout << "packet->hasBitError()" << endl;
-            }
-            else if (!packet->peekData()->isCorrect())
-            {
-                cout << "!packet->peekData()->isCorrect()" << endl;
-            }
+
             const MacAddress& dest = mac->getDestAddr();
             decapsulate(packet);
             sendUp(packet);
             nbRxDataPackets++;
-            cout << "Received Data packet" << endl;
             if (report_wait_to->isScheduled())
             {
                 cancelEvent(report_wait_to);
@@ -732,9 +717,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
         if (msg->getKind() == RIMAC_WAKE_UP)
         {
             scheduleAt(simTime() + sleepInterval, wakeup);
-            cout << "WAIT_PREAMBLE" << endl;
-            cout << "wakeup->isScheduled() = "<< wakeup->isScheduled() << endl;
-            cout << "wakeup->getArrivalTime() = "<< wakeup->getArrivalTime() << endl;
             return;
         }
         else if (msg->getKind() == RIMAC_PREAMBLE)
@@ -755,9 +737,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
             EV << "node " << address << " : State WAIT_PREAMBLE, received RIMAC_PREAMBLE" << endl;
             //auto incoming_data = check_and_cast<Packet *>(msg)->peekAtFront<RIMacHeader>();
             //auto tx_frame = currentTxFrame->peekAtFront<RIMacHeader>();
-            cout << incoming_data->getSrcAddr() << endl;
-            cout << tx_frame->getDestAddr() << endl;
-            cout << (incoming_data->getSrcAddr() == tx_frame->getDestAddr()) << endl;
 
             if (incoming_data->getSrcAddr() == tx_frame->getDestAddr())
             {
@@ -863,9 +842,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
             else if (msg->getKind() == RIMAC_WAKE_UP)
             {
                 scheduleAt(simTime() + sleepInterval, wakeup);
-                cout << "WAIT_TX_DATA_OVER" << endl;
-                cout << "wakeup->isScheduled() = "<< wakeup->isScheduled() << endl;
-                cout << "wakeup->getArrivalTime() = "<< wakeup->getArrivalTime() << endl;
                 return;
             }
             break;
@@ -873,9 +849,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
         if (msg->getKind() == RIMAC_WAKE_UP)
         {
             scheduleAt(simTime() + sleepInterval, wakeup);
-            cout << "WAIT_ACK" << endl;
-            cout << "wakeup->isScheduled() = "<< wakeup->isScheduled() << endl;
-            cout << "wakeup->getArrivalTime() = "<< wakeup->getArrivalTime() << endl;
+
 
             return;
         }
@@ -895,9 +869,8 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 deleteCurrentTxFrame();
                 if (txQueue->getNumPackets())
                 {
-                    cout << "I'm " << this->getParentModule()->getParentModule()->getFullName() << " and I've "<< txQueue->getNumPackets() << " msgs" << endl;
                     popTxQueue();
-                    cout << "I'm " << this->getParentModule()->getParentModule()->getFullName() << " and I've "<< txQueue->getNumPackets() << " msgs" << endl;
+
                     auto tx_frame = currentTxFrame->peekAtFront<RIMacHeader>();
                     if (incoming_data->getSrcAddr() == tx_frame->getDestAddr())
                     {
@@ -946,8 +919,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 this->rcvWindowSize = windowSize;
                 int backoff    = intuniform(0, 1 << windowSize);
 
-                cout << "max: " << (1 << windowSize) << endl;
-                cout << "backoff: " << (backoff) << endl;
+
                 macState = WAIT_BACKOFF;
                 changeDisplayColor(YELLOW);
                 // Backoff for 10.0f check interval
@@ -994,7 +966,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
         }
         break;
     case WAIT_BEACON:
-        cout << "WAIT_BEACON rcv: " << msg->getKind() << endl;
+
         if (msg->getKind() == RIMAC_WAKE_UP)
         {
             scheduleAt(simTime() + sleepInterval, wakeup);
