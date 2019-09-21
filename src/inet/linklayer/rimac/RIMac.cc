@@ -381,9 +381,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
             macState = SLEEP;
             double rand = dblrand();
 
-            printState();
-            cout << "Wake in: "<< rand*sleepInterval << endl;
-
             scheduleAt(simTime()+rand*sleepInterval, wakeup);
 
             return;
@@ -561,9 +558,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
             {
                 macState = WAIT_PREAMBLE;
                 changeDisplayColor(GREEN);
-                // TODO: 1.9f*checkInterval is it right?
-                //scheduleAt(simTime() + 1.9f*checkInterval, report_preamble_to);
-
                 scheduleAt(simTime() + 1.0f*sleepInterval, report_preamble_to);
                 if (currentTxFrame == nullptr)
                 {
@@ -772,7 +766,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 macState = SEND_REPORT;
                 changeDisplayColor(YELLOW);
                 radio->setRadioMode(IRadio::RADIO_MODE_TRANSMITTER);
-                //double switchingTime = par("switchingTime"); TODO
+
                 scheduleAt(simTime() + sifs, send_report);
                 return;
             }
@@ -820,7 +814,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 EV << "node " << address << " : State WAIT_PREAMBLE, received RIMAC_PREAMBLE, new state SEND_REPORT" << endl;
                 macState = SEND_REPORT;
                 changeDisplayColor(YELLOW);
-                //double switchingTime = par("switchingTime"); TODO
+
                 scheduleAt(simTime() + sifs, switch_preamble_phase);
                 return;
             }
@@ -865,27 +859,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 scheduleAt(simTime() + sifs, switch_preamble_phase);
                 radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
                 changeDisplayColor(GREEN);
-                /*
-                EV_DEBUG << "node " << address << " : State WAIT_TX_DATA_OVER, message RIMAC_DATA_TX_OVER, new state  SLEEP" << endl;
-                // remove the packet just served from the queue
-                deleteCurrentTxFrame();
-                // if something in the queue, wakeup soon.
-                if (!txQueue->isEmpty() && false) //TODO counter
-                {
-                    macState = WAIT_PREAMBLE;
-                    radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
-                    changeDisplayColor(GREEN);
-                    scheduleAt(simTime() + 1.0f*slotDuration, report_preamble_to);
-                }
-                else // pop() == 0
-                {
-                    //scheduleAt(simTime() + slotDuration, wakeup);
-                    macState = SLEEP;
-                    radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
-                    changeDisplayColor(BLACK);
-                    return;
-                }
-                */
             }
             else if (msg->getKind() == RIMAC_WAKE_UP)
             {
@@ -917,9 +890,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
             auto incoming_data = check_and_cast<Packet *>(msg)->peekAtFront<RIMacHeader>();
             int windowSize = incoming_data->getWindowSize();
             // TODO: the beacon is not for me
-            cout << "I'm " << this->getParentModule()->getParentModule()->getFullName() << endl;
-            cout << "My current windowSize " << this->rcvWindowSize << endl;
-            cout << "My rcv windowSize " << windowSize << endl;
             if (windowSize == 0)
             {
                 deleteCurrentTxFrame();
@@ -1019,9 +989,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
         else if (msg->getKind() == RIMAC_WAKE_UP)
         {
             scheduleAt(simTime() + sleepInterval, wakeup);
-            cout << "WAIT_BACKOFF" << endl;
-            cout << "wakeup->isScheduled() = "<< wakeup->isScheduled() << endl;
-            cout << "wakeup->getArrivalTime() = "<< wakeup->getArrivalTime() << endl;
+
             return;
         }
         break;
@@ -1030,9 +998,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
         if (msg->getKind() == RIMAC_WAKE_UP)
         {
             scheduleAt(simTime() + sleepInterval, wakeup);
-            cout << "WAIT_BEACON" << endl;
-            cout << "wakeup->isScheduled() = "<< wakeup->isScheduled() << endl;
-            cout << "wakeup->getArrivalTime() = "<< wakeup->getArrivalTime() << endl;
+
             return;
         }
         else if (msg->getKind() == RIMAC_BEACON)
@@ -1042,8 +1008,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
             int windowSize = incoming_data->getWindowSize();
             this->rcvWindowSize = windowSize;
             int backoff = intuniform(0, 1 << windowSize);
-            cout << "max: " << (1 << windowSize) << endl;
-            cout << "backoff: " << backoff << endl;
+
             if (send_report->isScheduled())
             {
                 cancelEvent(send_report);
@@ -1054,9 +1019,9 @@ void RIMac::handleSelfMessage(cMessage *msg)
             }
             macState = WAIT_BACKOFF;
             changeDisplayColor(GREEN);
-            printState();
+
             scheduleAt(simTime() + 1.0f * slotDuration * backoff, switch_preamble_phase);
-            cout << "Wait " << 1.0f * slotDuration * backoff << " s" << endl;
+
             return;
         }
         break;
@@ -1073,7 +1038,7 @@ void RIMac::handleLowerPacket(Packet *msg)
 {
     if (msg->hasBitError()) {
         EV << "Received " << msg << " contains bit errors or collision, dropping it\n";
-        cout << "Received " << msg << " contains bit errors or collision, dropping it\n";
+
         handleErrorInMessage();
         nbRxBrokenDataPackets++;
 
@@ -1134,15 +1099,12 @@ void RIMac::sendReportPacket()
 void RIMac::receiveSignal(cComponent *source, simsignal_t signalID, long value, cObject *details)
 {
     Enter_Method_Silent();
-    if (signalID == IRadio::receptionEndedSignal)
-    {
-        cout << "receptionEndedSignal" << endl;
-    }
-    else if (signalID == IRadio::receptionStateChangedSignal)
+
+    if (signalID == IRadio::receptionStateChangedSignal)
     {
         if (macState == WAIT_REPORT)
         {
-            cout << radio->getRadioReceptionStateName(radio->getReceptionState()) << endl;
+
             if (radio->getReceptionState() == IRadio::RECEPTION_STATE_IDLE)
             {
                 if (isErrorDetected)
@@ -1296,57 +1258,7 @@ void RIMac::attachSignal(Packet *packet, simtime_t_cref startTime)
  */
 void RIMac::printState(void)
 {
-    cout << "Current state is ";
-    switch (macState) {
-        case INIT:
-            cout << "INIT";
-            break;
-        case SLEEP:
-            cout << "SLEEP";
-            break;
-        case CCA:
-            cout << "CCA";
-            break;
-        case WAIT_REPORT:
-            cout << "WAIT_REPORT";
-            break;
-        case SEND_REPORT:
-            cout << "SEND_REPORT";
-            break;
-        case WAIT_PREAMBLE:
-            cout << "WAIT_PREAMBLE";
-            break;
-        case SEND_PREAMBLE:
-            cout << "SEND_PREAMBLE";
-            break;
-        case SEND_BEACON_W:
-            cout << "SEND_BEACON_W";
-            break;
-        case WAIT_ACK:
-            cout << "WAIT_ACK";
-            break;
-        case SEND_PREAMBLE_AWAKE:
-            cout << "SEND_PREAMBLE_AWAKE";
-            break;
-        case SEND_DATA:
-            cout << "SEND_DATA";
-            break;
-        case WAIT_BACKOFF:
-            cout << "WAIT_BACKOFF";
-            break;
-        case WAIT_BEACON:
-            cout << "WAIT_BEACON";
-            break;
-        case WAIT_TX_DATA_OVER:
-            cout << "WAIT_TX_DATA_OVER";
-            break;
-
-        default:
-            break;
-    }
-    cout << endl;
-
-    //dispStr.setTagArg("i", 0, edited);
+    return;
 }
 
 /**
