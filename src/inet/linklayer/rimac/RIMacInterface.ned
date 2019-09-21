@@ -22,7 +22,7 @@ import inet.linklayer.common.WirelessInterface;
 module RIMacInterface extends WirelessInterface
 {
     parameters:
-        radio.typename = default("ApskScalarRadio");
+        radio.typename = default("UnitDiskRadio");
         mac.typename = "RIMac";
 }
 
