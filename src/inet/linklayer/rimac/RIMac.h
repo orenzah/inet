@@ -31,6 +31,7 @@
 #include "inet/linklayer/contract/IMacProtocol.h"
 #include "inet/linklayer/rimac/RIMacHeader_m.h"
 #include "inet/physicallayer/contract/packetlevel/IRadio.h"
+#include "inet/physicallayer/unitdisk/UnitDiskRadio.h"
 
 namespace inet {
 
@@ -70,7 +71,10 @@ class INET_API RIMac : public MacProtocolBase, public IMacProtocol
         : MacProtocolBase()
         , nbTxDataPackets(0), nbTxPreambles(0), nbRxDataPackets(0), nbRxPreambles(0)
         , nbMissedAcks(0), nbRecvdAcks(0), nbDroppedDataPackets(0), nbTxAcks(0)
+        , nbCollisionCounter(0), nbReCollisionCounter(0), nbCollisionInvolvedVector(0)
+        , collisionCounter(0), countCollisions(0)
         , macState(INIT)
+        , sensorsIdInvolved(NULL)
         , resend_data(NULL), ack_timeout(NULL), start_rimac(NULL), wakeup(NULL)
         , send_ack(NULL), cca_timeout(NULL), ack_tx_over(NULL), send_preamble(NULL), stop_preambles(NULL), stop_rx_mode(NULL)
         , data_tx_over(NULL), data_timeout(NULL)
@@ -106,12 +110,17 @@ class INET_API RIMac : public MacProtocolBase, public IMacProtocol
 
     void receiveSignal(cComponent *source, simsignal_t signalID, long value, cObject *details) override;
 
+
+    /** @brief Internal list to be used in the gateway sensor cModule, for using statistical computations */
+    bool* sensorsIdInvolved;
   protected:
     /** implements MacBase functions */
     //@{
     virtual void configureInterfaceEntry() override;
     //@}
 
+    /** @brief Internal pointer to the gateway sensor cModule, for using statistical computations */
+    RIMac* gateway;
     /** @name Different tracked statistics.*/
     /*@{*/
     long nbTxDataPackets;
@@ -123,6 +132,9 @@ class INET_API RIMac : public MacProtocolBase, public IMacProtocol
     long nbDroppedDataPackets;
     long nbTxAcks;
     long nbRxBrokenDataPackets;
+    long nbCollisionCounter;
+    long nbReCollisionCounter;
+    cOutVector nbCollisionInvolvedVector;
     /*@}*/
 
     /** @brief MAC states
@@ -214,6 +226,8 @@ class INET_API RIMac : public MacProtocolBase, public IMacProtocol
 
     int windowSize = 3;    // window size of backoff, default is 3, that is 2**3.
 
+
+    physicallayer::IRadioMedium *unitDisk;
     /** @brief The radio. */
     physicallayer::IRadio *radio;
 
@@ -260,7 +274,10 @@ class INET_API RIMac : public MacProtocolBase, public IMacProtocol
     /** @brief Gather stats at the end of the simulation */
     bool stats;
 
-
+    /** @brief Monitor the collisions  */
+    bool countCollisions;
+    /** @brief Count the number of collision for record it as vector*/
+    int collisionCounter;
 
     /** @brief Possible colors of the node for animation */
     enum RIMAC_COLORS {

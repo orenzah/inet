@@ -76,6 +76,7 @@ void RIMac::initialize(int stage)
         lastDataPktDestAddr = MacAddress::BROADCAST_ADDRESS;
         lastDataPktSrcAddr  = MacAddress::BROADCAST_ADDRESS;
 
+        nbCollisionInvolvedVector.setName("Collision-Involved-Counter");
         macState = INIT;
         txQueue = check_and_cast<queueing::IPacketQueue *>(getSubmodule("queue"));
         WATCH(macState);
@@ -86,7 +87,15 @@ void RIMac::initialize(int stage)
         radioModule->subscribe(IRadio::transmissionStateChangedSignal, this);
         radioModule->subscribe(IRadio::receptionStateChangedSignal, this);
         radioModule->subscribe(IRadio::receptionEndedSignal, this);
+
         radio = check_and_cast<IRadio *>(radioModule);
+
+
+        cModule *unitDiskModule = this->getModuleByPath("radioMedium");
+        unitDiskModule->subscribe(IRadioMedium::signalArrivalStartedSignal, this);
+
+        unitDisk = check_and_cast<IRadioMedium *>(unitDiskModule);
+
 
         wakeup = new cMessage("wakeup");
         wakeup->setKind(RIMAC_WAKE_UP);
@@ -214,11 +223,12 @@ RIMac::~RIMac()
     cancelAndDelete(rimac_rcv_start);
 
     delete lastPreamblePktSent;
-
+    delete sensorsIdInvolved;
 }
 
 void RIMac::finish()
 {
+
     // record stats
     if (stats) {
         recordScalar("nbTxDataPackets", nbTxDataPackets);
@@ -230,6 +240,9 @@ void RIMac::finish()
         recordScalar("nbTxAcks", nbTxAcks);
         recordScalar("nbDroppedDataPackets", nbDroppedDataPackets);
         recordScalar("nbRxBrokenDataPackets", nbRxBrokenDataPackets);
+        recordScalar("nbCollisionCounter", nbCollisionCounter);
+        recordScalar("nbReCollisionCounter", nbReCollisionCounter);
+
         //recordScalar("timeSleep", timeSleep);
         //recordScalar("timeRX", timeRX);
         //recordScalar("timeTX", timeTX);
@@ -331,6 +344,7 @@ void RIMac::sendWindow(int windowSize)
     beacon->setWindowSize(windowSize);
 
     auto beaconPkt = new Packet("Beacon", beacon);
+    beaconPkt->setTimestamp(simTime());
     beaconPkt->addTag<PacketProtocolTag>()->setProtocol(&Protocol::rimac);
     attachSignal(beaconPkt, simTime());
     sendDown(beaconPkt);
@@ -366,8 +380,6 @@ void RIMac::handleSelfMessage(cMessage *msg)
 {
     MacAddress address = interfaceEntry->getMacAddress();
 
-
-
     switch (macState)
     {
     case INIT:
@@ -379,7 +391,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
             radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
             macState = SLEEP;
             double rand = dblrand();
-
+            gateway = check_and_cast<RIMac *>(getModuleByPath("gateway.wlan[0].mac"));
             scheduleAt(simTime()+rand*sleepInterval, wakeup);
 
             return;
@@ -387,12 +399,17 @@ void RIMac::handleSelfMessage(cMessage *msg)
         break;
     case SLEEP:
         //when wakeup, go immediately to CCA state
+        if (!sensorsIdInvolved)
+            sensorsIdInvolved = new bool[100];
+        memset(sensorsIdInvolved, false, 100*sizeof(bool));
+
         if (msg->getKind() == RIMAC_WAKE_UP)
         {
             EV_DEBUG << "node " << address << " : State SLEEP, message RIMAC_WAKEUP, new state CCA, simTime " <<
                     simTime() << " to " << simTime() + clearChannelAssessment << endl;
 
             scheduleAt(simTime() + sleepInterval, wakeup);
+            collisionCounter = 1;
             this->rcvWindowSize = 0;
             macState = CCA;
             radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
@@ -537,6 +554,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
         {
             // we've finished transmistting the preamble
             macState = WAIT_REPORT;
+            collisionCounter = 1;
             scheduleAt(simTime() + sifs, switch_preamble_phase);
             changeDisplayColor(YELLOW);
             return;
@@ -608,6 +626,7 @@ void RIMac::handleSelfMessage(cMessage *msg)
                 cancelEvent(report_wait_to);
             }
             scheduleAt(simTime(), send_preamble);
+            collisionCounter = 1;
             return;
 
         }
@@ -634,10 +653,34 @@ void RIMac::handleSelfMessage(cMessage *msg)
             // macState is WAIT_REPORT
             // Two or more tranmission has been made.
             // We need to send a beacon with backoff window
+
+            int cntCollisions = 0;
+            cout << "Collision Detected:" << endl;
+            for (int j = 0; j < 100; ++j)
+            {
+                if (!sensorsIdInvolved[j])
+                    continue;
+                cout << "sensor" << j+1 << " " << "is involved" << endl;
+                cntCollisions++;
+            }
+            cout << endl;
+            nbCollisionInvolvedVector.record(cntCollisions);
+            if (this->windowSize == 2 /*TODO change to par*/)
+            {
+                // if this is the first collision, count it
+                nbCollisionCounter++;
+                collisionCounter = 1;
+            }
+            else
+            {
+                // if this is a following collision, count it
+                nbReCollisionCounter++;
+            }
             macState = SEND_BEACON_W;
             (this->windowSize)++;
             radio->setRadioMode(IRadio::RADIO_MODE_TRANSMITTER);
             changeDisplayColor(YELLOW);
+            memset(sensorsIdInvolved, false, 100*sizeof(bool));
             scheduleAt(simTime() + sifs, send_preamble);
             return;
         }
@@ -826,6 +869,12 @@ void RIMac::handleSelfMessage(cMessage *msg)
             macState = WAIT_TX_DATA_OVER;
             changeDisplayColor(GREEN);
             cntTx++;
+            int myId = -1;
+            char sensorName[10] = {0};
+            strcpy(sensorName, this->getParentModule()->getParentModule()->getFullName());
+            sscanf(sensorName, "%*6c%d", &myId);
+            gateway->sensorsIdInvolved[myId-1] = true;
+
             return;
         }
         break;
@@ -916,6 +965,8 @@ void RIMac::handleSelfMessage(cMessage *msg)
             else
             {
                 // NACK, there is a congestion
+
+                nbCollisionInvolvedVector.recordWithTimestamp(msg->getTimestamp(), 1);
                 this->rcvWindowSize = windowSize;
                 int backoff    = intuniform(0, 1 << windowSize);
 
@@ -1008,12 +1059,15 @@ void RIMac::handleSelfMessage(cMessage *msg)
  */
 void RIMac::handleLowerPacket(Packet *msg)
 {
+    if (!strcmp(this->getParentModule()->getParentModule()->getFullName(), "gateway"))
+    {
+        countCollisions = true;
+        collisionCounter++;
+    }
     if (msg->hasBitError()) {
         EV << "Received " << msg << " contains bit errors or collision, dropping it\n";
-
         handleErrorInMessage();
         nbRxBrokenDataPackets++;
-
         delete msg;
         return;
     }
@@ -1085,9 +1139,12 @@ void RIMac::receiveSignal(cComponent *source, simsignal_t signalID, long value, 
                     if (hasGUI())
                     {
                         char text[32];
-                        sprintf(text, "Collision!");
+                        sprintf(text, "Collision! From Idle");
                         this->getParentModule()->getParentModule()->bubble(text);
+
+
                     }
+                    countCollisions = true;
                     isErrorDetected = false;
                     scheduleAt(simTime(), rimac_col_ended);
                 }
@@ -1098,9 +1155,10 @@ void RIMac::receiveSignal(cComponent *source, simsignal_t signalID, long value, 
                     if (hasGUI())
                     {
                         char text[32];
-                        sprintf(text, "Collision!");
+                        sprintf(text, "Collision! From Busy");
                         this->getParentModule()->getParentModule()->bubble(text);
                     }
+                    countCollisions = true;
                     scheduleAt(simTime(), rimac_col_ended);
 
                 }
